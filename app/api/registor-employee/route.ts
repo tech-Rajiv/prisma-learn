@@ -1,22 +1,34 @@
 import { empCreated, empNotCreated, missingFeilds } from "@/app/lib/Const";
 import { prisma } from "@/app/lib/prisma";
-
+import z from "zod";
 import { NextRequest, NextResponse } from "next/server";
+import { createEmployeSchema } from "./schema";
 
 export async function POST(request: NextRequest) {
-  const { name, role, age, salary, email } = await request.json();
-  console.log("name, role, age, salary: ", name, email, role, age, salary);
+  const formData = await request.json();
+  console.log(formData);
 
-  if (!name || !role || !age || !salary || !email) {
+  const validSchema = createEmployeSchema.safeParse(formData);
+
+  if (!validSchema.success) {
+    const formattedErrors = Object.entries(
+      validSchema.error.flatten().fieldErrors
+    ).map(([field, messages]) => ({
+      field,
+      message: messages?.join(", ") || "Invalid value",
+    }));
+
+    console.log("errors", formattedErrors);
     return NextResponse.json({
       success: false,
-      msg: missingFeilds,
+      msg: "Validation error",
       data: null,
+      error: formattedErrors,
     });
   }
   try {
     const data = await prisma.employee.create({
-      data: { name, age, salary, email, role },
+      data: { ...formData },
     });
     console.log("data : ", data);
     return NextResponse.json({
